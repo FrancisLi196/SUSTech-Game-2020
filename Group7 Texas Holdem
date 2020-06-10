@@ -1,0 +1,267 @@
+
+
+import random
+import pandas as pd
+from pypokerengine.utils.card_utils import estimate_hole_card_win_rate, gen_cards 
+#we use the pypokerengine package to compute the win rate
+
+
+# In[7]:
+
+
+def compute_call_amount(wr, min_raise, pool_amount, call_amount, stack): 
+    #using kelly to compute the call amount
+    p = wr
+    q = 1-p
+    b=pool_amount/call_amount
+    f1 = (b*p-q)/b
+    #print(f1*stack)
+    call_new = call_amount
+
+    while call_new<f1*stack and call_new<=(stack-min_raise):
+        call_new+=min_raise
+        b=pool_amount/call_new
+        f1 = (b*p-q)/b
+        #print(f1*stack)
+    return call_new-min_raise
+
+
+# In[8]:
+
+
+def give_advice(raise_amount, call_amount, stack, s_char): 
+    #We give advice based on kelly, and adjust by other player's characteristics
+    if raise_amount < call_amount:
+        if s_char[0]==2 and call_amount < stack*0.3: #strong
+            return ('call')
+        elif s_char[0]==1 and call_amount>=stack*0.3: #honest
+            return ('fold')
+        elif s_char[0]==3 and call_amount < stack*0.3: #experienced
+            rd = random.random()
+            if rd > 0.5:
+                return ('random call: '+str(call_amount))
+            else:
+                return ('check')
+        else:
+            return ('check')
+    elif raise_amount < stack:
+        if s_char[0]==0 and (2*raise_amount) < stack: #weak
+            return ('raise double: '+str(2*raise_amount))
+        elif s_char[0]==1: #honest
+            if call_amount>=stack*0.3:
+                return ('fold')
+            else:
+                return ('raise half: '+str(0.5*raise_amount))
+        elif s_char[0]==3: #experienced
+            rd = random.random()
+            if raise_amount*rd*2 >= call_amount and raise_amount*rd*2 < stack*0.3:
+                return ('random raise, up to you: '+str(round(raise_amount*rd*2)))
+            else:
+                return ('raise: '+str(raise_amount))
+        else:
+            return ('raise: '+str(raise_amount))
+    else:
+        return ('ALL IN!')
+
+
+# In[9]:
+
+
+#input number of players, hole_cards and community cards. Compute winning rate. 
+nb_player = int(input("Number of Players? "))
+
+#s_df.read_csv('./data/texas_players1.csv')
+char_type = ['weak','honest','strong','experienced'] # 4 types of characteristics
+s_char = []
+for nb in range(nb_player-1):
+    s_char.append(int(input("Choose Player"+str(nb+1)+"'s char from '0:weak','1:honest','2:strong','3:experienced': ")))
+
+#flop
+hc = []
+hc1 = input("hole_card1: ")
+hc2 = input("hole_card2: ")
+hc.append(hc1)
+hc.append(hc2)
+hole_card = gen_cards(hc)
+
+cc = []
+
+community_card = gen_cards(cc)
+wr1 = estimate_hole_card_win_rate(nb_simulation=1000, 
+                                 nb_player=nb_player, 
+                                 hole_card=hole_card, 
+                                 community_card=community_card)
+
+print(wr1)
+
+#comute call amount
+MIN_RAISE = 10
+pool_amount1 = int(input('Pool amount: '))
+call_amount = int(input('MIN Call amount: '))
+stack = int(input('current stack: '))
+
+raise_amount = compute_call_amount(wr1, 
+                    min_raise=MIN_RAISE, 
+                    pool_amount=pool_amount1, 
+                    call_amount=call_amount, 
+                    stack=stack)
+
+adv1 = give_advice(raise_amount=raise_amount, call_amount=call_amount, stack=stack, s_char=s_char)
+print(adv1)
+
+
+#turn
+cc1 = input("community_card1: ")
+cc2 = input("community_card2: ")
+cc3 = input("community_card3: ")
+    
+cc.append(cc1)
+cc.append(cc2)
+cc.append(cc3)
+    
+community_card = gen_cards(cc)
+wr2 = estimate_hole_card_win_rate(nb_simulation=1000, 
+                                 nb_player=nb_player, 
+                                 hole_card=hole_card, 
+                                 community_card=community_card)
+print(wr2)
+
+#comute call amount
+MIN_RAISE = 10
+pool_amount2 = int(input('Pool amount: '))
+call_amount = int(input('MIN Call amount: '))
+stack = int(input('current stack: '))
+
+raise_amount = compute_call_amount(wr2, 
+                    min_raise=MIN_RAISE, 
+                    pool_amount=pool_amount2, 
+                    call_amount=call_amount, 
+                    stack=stack)
+
+adv2 = give_advice(raise_amount=raise_amount, call_amount=call_amount, stack=stack, s_char=s_char)
+print(adv2)
+
+
+#river
+cc4 = input("community_card4: ")
+cc.append(cc4)
+community_card = gen_cards(cc)
+wr3 = estimate_hole_card_win_rate(nb_simulation=1000, 
+                                 nb_player=nb_player, 
+                                 hole_card=hole_card, 
+                                 community_card=community_card)
+
+print(wr3)
+
+#comute call amount
+MIN_RAISE = 10
+pool_amount3 = int(input('Pool amount: '))
+call_amount = int(input('MIN Call amount: '))
+stack = int(input('current stack: '))
+
+raise_amount = compute_call_amount(wr3, 
+                    min_raise=MIN_RAISE, 
+                    pool_amount=pool_amount3, 
+                    call_amount=call_amount, 
+                    stack=stack)
+
+adv3 = give_advice(raise_amount=raise_amount, call_amount=call_amount, stack=stack, s_char=s_char)
+print(adv3)
+
+
+# In[10]:
+
+
+# input other player's history actions and states, output their characteristics
+player_df = pd.DataFrame(columns=('name','char','hist_high','hist_low','hist_value'))
+
+player_info = []
+for i in range(nb_player-1):
+    s_name = input('player name: ')
+    shc = []
+    s1 = input('player'+str(i+1)+'hole_card1: ')
+    s2 = input('player'+str(i+1)+'hole_card2: ')
+    shc.append(s1)
+    shc.append(s2)
+    s_hole_card = gen_cards(shc)
+    
+    community_card0 = gen_cards([])
+    s_wr1 = estimate_hole_card_win_rate(nb_simulation=1000, 
+                                 nb_player=nb_player, 
+                                 hole_card=s_hole_card, 
+                                 community_card=community_card0)
+    community_card3 = gen_cards(cc[0:3])
+    s_wr2 = estimate_hole_card_win_rate(nb_simulation=1000, 
+                                 nb_player=nb_player, 
+                                 hole_card=s_hole_card, 
+                                 community_card=community_card3)
+    community_card4 = gen_cards(cc)
+    s_wr3 = estimate_hole_card_win_rate(nb_simulation=1000, 
+                                 nb_player=nb_player, 
+                                 hole_card=s_hole_card, 
+                                 community_card=community_card4)
+    
+    s_hist = []
+    s_hist.append(int(input('player'+str(i+1)+'flop call amount: ')))
+    s_hist.append(int(input('player'+str(i+1)+'turn call amount: ')))
+    s_hist.append(int(input('player'+str(i+1)+'river call amount: ')))
+    
+    s_raise_amount = []
+    
+    #pool_amount = int(input('Pool amount flop: '))
+    call_amount = int(input('MIN Call amount flop: '))
+    stack = int(input('stack flop: '))
+    s_raise_amount.append(compute_call_amount(s_wr1, 
+                    min_raise=MIN_RAISE, 
+                    pool_amount=pool_amount1, 
+                    call_amount=call_amount, 
+                    stack=stack))
+    
+    #pool_amount = int(input('Pool amount turn: '))
+    call_amount = int(input('MIN Call amount turn: '))
+    stack = int(input('stack turn: '))
+    s_raise_amount.append(compute_call_amount(s_wr2, 
+                    min_raise=MIN_RAISE, 
+                    pool_amount=pool_amount2, 
+                    call_amount=call_amount, 
+                    stack=stack))
+    
+    #pool_amount = int(input('Pool amount river: '))
+    call_amount = int(input('MIN Call amount river: '))
+    stack = int(input('stack river: '))
+    s_raise_amount.append(compute_call_amount(s_wr3, 
+                    min_raise=MIN_RAISE, 
+                    pool_amount=pool_amount3, 
+                    call_amount=call_amount, 
+                    stack=stack))
+    
+    print('calculating...')
+    # We can init cnt from csv documents by 'name', if the same player appear again
+    high_cnt = 0
+    low_cnt = 0
+    value_cnt = 0
+    
+    for j in range(3):
+        if s_hist[j] < 0.5 * s_raise_amount[j]:
+            low_cnt+=1
+        elif s_hist[j] > 1.5 * s_raise_amount[j]:
+            high_cnt+=1
+        else:
+            value_cnt+=1
+    if low_cnt>high_cnt and low_cnt>value_cnt:
+        s_char = char_type[0]
+    elif value_cnt>high_cnt and value_cnt>low_cnt:
+        s_char = char_type[1]
+    elif high_cnt>low_cnt and high_cnt>value_cnt:
+        s_char = char_type[2]
+    else:
+        s_char = char_type[3]
+    # We can modify the information, instead of insert, if the same player appear again
+
+    player_df=player_df.append(pd.DataFrame({'name':[s_name],'char':[s_char],'hist_high':[high_cnt],'hist_low':[low_cnt],'hist_value':[value_cnt]}),ignore_index=True)
+
+print(player_df)
+print('saving...')
+player_df.to_csv('./data/texas_players1.csv')
+print('saved!')
+
